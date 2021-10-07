@@ -1,84 +1,112 @@
 package com.example.myproject;
+//>-----------------Android studio imports required libraries----------<
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import android.Manifest;
+import android.content.Context;
 import androidx.fragment.app.FragmentActivity;
-
-import android.location.Address;
-import android.location.Geocoder;
+import android.annotation.SuppressLint;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
-import android.widget.Toast;
-
+import android.provider.Settings;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.example.myproject.databinding.ActivityMapBinding;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Locale;
-import java.util.zip.Inflater;
-
-import static android.content.ContentValues.TAG;
-
-public class MapActivity extends FragmentActivity implements OnMapReadyCallback {
+//<------------------------------------------------------------>
+public class MapActivity extends AppCompatActivity implements OnMapReadyCallback {
+    //>--------------required variables declaration-----------<
+    private boolean mLocationPermissionGranted;
+    int REQUESTCODE = 100;
+    LatLng currentlatlag;
+    private FusedLocationProviderClient mFusedLocationclient;
     private GoogleMap mMap;
-    private ActivityMapBinding binding;
-    //private Inflater ActivityMapBinding;
-
+    Marker marker;
+    LocationManager locationm;
+    SupportMapFragment supportMapFragment;
+    //
+//<------------------------------------------------------->
+    @SuppressLint("MissingPermission")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //binding = ActivityMapBinding.inflate(getLayoutInflater());
-        setContentView(R.layout.activity_map);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        setContentView(R.layout.activity_map);//linking to our xml file
+        supportMapFragment=(SupportMapFragment)getSupportFragmentManager().findFragmentById(R.id.mapfrag);//intialising support mapfragment to contain our map
+        supportMapFragment.getMapAsync(this);//syncing map,once its ready onMapReadyCallback is called()
+//>--------checking whther location permissions are granted and gps is enabled else direct user to enable them-----------<
+        mFusedLocationclient = LocationServices.getFusedLocationProviderClient(this);
+        if (mLocationPermissionGranted) {
+
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1009);
+                }
+            }
+        }
+        if(isGPSEnabled());
+        locationm = (LocationManager) getSystemService(LOCATION_SERVICE);
+//<------------------------------------------------------------------------------------------------------------------------>
+//>------------------------------Checking and updating location of user----------------------------------------------------<
+        locationm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, new LocationListener() {
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
+                if (marker != null)
+                    marker.remove();
+                currentlatlag = new LatLng(location.getLatitude(), location.getLongitude());
+                marker = mMap.addMarker(new MarkerOptions().position(currentlatlag).title("Your Locstion"));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentlatlag, 7f));
+            }
+        });
+//<------------------------------------------------------------------------------------------------------------------------>
     }
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
+    private boolean isGPSEnabled() {
+        LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+        boolean checker = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        if (checker) {
+            return true;
+        } else {
+            AlertDialog ad = new AlertDialog.Builder(this).setTitle("Permissions").setMessage("Please enable GPS").
+                    setPositiveButton("Yes", ((dialoginterfae, i) -> {
+                        Intent it = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivity(it);
+                    })).setCancelable(false).show();
+            return false;
+        }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUESTCODE && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            mLocationPermissionGranted = true;
+        }
+    }
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-       //
-        // mMap.setMa;
-        // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng( 18.370883865193218, 79.33605194429911);
-       // LatLng sydney1 = new LatLng(-34, 160);
-        Geocoder geocoder=new Geocoder(this);
-        List<Address> addresslist=new ArrayList<Address>();
-        try {
-            addresslist= geocoder.getFromLocationName("india",5);
-
-        } catch (IOException e) {
-            Log.d(TAG, "---------------------------EEEEEEEEEEEE---------------------------------------------------------------EEEEEEEEEEEEEE");
+        mMap=googleMap;
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
         }
-        if(addresslist.size()>0){
-
-            Address ad=addresslist.get(0);
-            LatLng gang=new LatLng(ad.getLatitude(),ad.getLongitude());
-            mMap.addMarker(new MarkerOptions().position(gang).title("Marker in Sydney"));
-            Toast.makeText(this, ""+ad.getLatitude(), Toast.LENGTH_SHORT).show();
-      //  mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-       // mMap.addMarker(new MarkerOptions().position(sydney1).title("Marker in Sydney1"));
-        //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(gang,5f));
-       mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(gang,15f));
-         }
-        Toast.makeText(this, "Error", Toast.LENGTH_LONG).show();
+        mMap.setMyLocationEnabled(true);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+    }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }
